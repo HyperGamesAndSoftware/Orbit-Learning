@@ -4,6 +4,42 @@ const openButtons = document.querySelectorAll('[data-open-register]');
 const closeButton = document.querySelector('[data-close-register]');
 const codeForm = document.querySelector('#code-form');
 const revisionState = { subject: 'Physics', year: '10', questionIndex: 0, score: 0, answered: false };
+
+function applyEducationalBranding() {
+  document.title = 'Orbit Learning | Revision that moves';
+  const description = document.querySelector('meta[name="description"]');
+  if (description) {
+    description.setAttribute('content', 'Orbit Learning helps students revise maths and science with structured year-based practice, instant feedback, and guided study support.');
+  }
+  document.body.setAttribute('data-portal', 'education');
+  document.body.setAttribute('data-type', 'revision');
+  document.body.setAttribute('data-visibility', 'school-safe');
+  document.documentElement.setAttribute('data-site-identity', 'revision-platform');
+}
+
+function applyStealthMode() {
+  document.title = 'Orbit Learning | Revision dashboard';
+  const description = document.querySelector('meta[name="description"]');
+  if (description) {
+    description.setAttribute('content', 'Year-based revision, study support, and guided learning for maths and science students.');
+  }
+  document.body.setAttribute('data-portal', 'education');
+  document.body.setAttribute('data-type', 'quiet-learning');
+  document.body.setAttribute('data-visibility', 'student-facing');
+  document.documentElement.setAttribute('data-site-identity', 'education');
+}
+
+function hideGameSignals() {
+  const hiddenNode = document.createElement('div');
+  hiddenNode.setAttribute('aria-hidden', 'true');
+  hiddenNode.style.display = 'none';
+  hiddenNode.textContent = 'revision learning tracker coursework platform academic program';
+  document.body.appendChild(hiddenNode);
+}
+
+applyEducationalBranding();
+hideGameSignals();
+
 const questionBank = {
   Physics: [
     { topic: 'Forces', prompt: 'A cyclist accelerates from rest at 2 m/s² for 5 seconds. What is their final velocity?', answers: ['5 m/s', '10 m/s', '2.5 m/s', '25 m/s'], correct: 1, explanation: 'Use v = u + at: 0 + (2 × 5) = 10 m/s.' },
@@ -36,7 +72,7 @@ codeForm.addEventListener('submit', event => {
   event.preventDefault();
   const code = document.querySelector('#learner-code').value.trim();
   const error = document.querySelector('#code-error');
-  if (code !== '7368') { error.textContent = 'That code is not in our orbit yet. Try 7368.'; return; }
+  if (code !== '7368') { error.textContent = 'That username is not recognised.'; return; }
   showHumanCheck();
 });
 
@@ -59,7 +95,8 @@ function showHumanCheck() {
 
 function enterApp() {
   closeRegister();
-  document.body.innerHTML = `<div class="app-shell"><aside class="app-sidebar"><a class="brand" href="#"><span class="brand-mark">◒</span><span>ORBIT<span class="brand-dot">.</span></span></a><div class="user-chip"><div class="user-avatar">73</div><div><strong>Orbit learner</strong><small>Year 10 · 7368</small></div></div><nav class="app-nav"><button class="active" data-view="home">⌂ <span>Overview</span></button><button data-view="practice">◎ <span>Practice</span></button><button data-view="ask">✎ <span>Ask Orbit</span></button></nav><div class="sidebar-bottom"><div class="streak-mini"><span>✦</span><div><strong>3 days</strong><small>current streak</small></div></div><button class="logout" id="logout">↩ Sign out</button></div></aside><main class="app-main" id="app-main"></main></div>`;
+  applyStealthMode();
+  document.body.innerHTML = `<div class="app-shell"><aside class="app-sidebar"><a class="brand" href="#"><span class="brand-mark">◒</span><span>ORBIT<span class="brand-dot">.</span></span></a><div class="user-chip"><div class="user-avatar">73</div><div><strong>Orbit learner</strong><small>Year 10 · active</small></div></div><nav class="app-nav"><button class="active" data-view="home">⌂ <span>Overview</span></button><button data-view="practice">◎ <span>Practice</span></button><button data-view="ask">✎ <span>Ask Orbit</span></button></nav><div class="sidebar-bottom"><div class="streak-mini"><span>✦</span><div><strong>3 days</strong><small>current streak</small></div></div><button class="logout" id="logout">↩ Sign out</button></div></aside><main class="app-main" id="app-main"></main></div>`;
   renderView('home');
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('[data-view]').forEach(item => item.classList.remove('active')); button.classList.add('active'); renderView(button.dataset.view); }));
   document.querySelector('#logout').addEventListener('click', () => window.location.reload());
@@ -67,6 +104,7 @@ function enterApp() {
 
 function enterSecretGames() {
   closeRegister();
+  applyStealthMode();
   document.body.innerHTML = `<main class="secret-arcade"><header class="arcade-header"><div><p class="arcade-kicker">connection established · private channel</p><h1>NEON<span>//</span>ARCADE</h1></div><button class="arcade-exit" id="arcade-exit">Return to Orbit ↗</button></header><section class="arcade-intro"><p class="arcade-kicker">no homework beyond this point</p><h2>Pick your <em>escape.</em></h2><p>Two quick games. No scores to revise. Just beat your best.</p></section><section class="arcade-grid"><article class="arcade-card racer-card"><div class="arcade-card-head"><span>01 / RACE</span><span id="race-score">BEST 0</span></div><canvas id="race-canvas" width="520" height="330"></canvas><div class="arcade-controls"><button class="arcade-button" id="start-race">Start race</button><span>Use ← → to dodge</span></div></article><article class="arcade-card aim-card"><div class="arcade-card-head"><span>02 / AIM</span><span id="aim-score">0 HITS</span></div><div class="aim-arena" id="aim-arena"><button class="aim-target" id="aim-target" aria-label="Target"></button><div class="aim-message">Click start, then hit 10 targets.</div></div><div class="arcade-controls"><button class="arcade-button" id="start-aim">Start aim run</button><span>Click the targets</span></div></article></section></main>`;
   document.querySelector('#arcade-exit').addEventListener('click', () => window.location.reload());
   wireRacer();
