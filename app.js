@@ -104,11 +104,7 @@ function enterApp() {
 
 function enterSecretGames() {
   closeRegister();
-  applyStealthMode();
-  document.body.innerHTML = `<main class="secret-arcade"><header class="arcade-header"><div><p class="arcade-kicker">connection established · private channel</p><h1>NEON<span>//</span>ARCADE</h1></div><button class="arcade-exit" id="arcade-exit">Return to Orbit ↗</button></header><section class="arcade-intro"><p class="arcade-kicker">no homework beyond this point</p><h2>Pick your <em>escape.</em></h2><p>Two quick games. No scores to revise. Just beat your best.</p></section><section class="arcade-grid"><article class="arcade-card racer-card"><div class="arcade-card-head"><span>01 / RACE</span><span id="race-score">BEST 0</span></div><canvas id="race-canvas" width="520" height="330"></canvas><div class="arcade-controls"><button class="arcade-button" id="start-race">Start race</button><span>Use ← → to dodge</span></div></article><article class="arcade-card aim-card"><div class="arcade-card-head"><span>02 / AIM</span><span id="aim-score">0 HITS</span></div><div class="aim-arena" id="aim-arena"><button class="aim-target" id="aim-target" aria-label="Target"></button><div class="aim-message">Click start, then hit 10 targets.</div></div><div class="arcade-controls"><button class="arcade-button" id="start-aim">Start aim run</button><span>Click the targets</span></div></article></section></main>`;
-  document.querySelector('#arcade-exit').addEventListener('click', () => window.location.reload());
-  wireRacer();
-  wireAim();
+  window.location.assign('arcade.html');
 }
 
 function renderView(view) {
