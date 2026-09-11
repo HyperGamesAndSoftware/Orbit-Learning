@@ -41,19 +41,36 @@ codeForm.addEventListener('submit', event => {
 });
 
 function showHumanCheck() {
-  content.innerHTML = `<p class="eyebrow"><span class="eyebrow-line"></span> one last check</p><h2>Quick human<br><em>check.</em></h2><p class="modal-lead">Tap the tile that matches the symbol. This keeps your learner space personal.</p><div class="captcha-box"><div class="captcha-prompt">Select the <strong>star</strong></div><div class="captcha-tiles"><button data-answer="circle">○</button><button data-answer="star">✦</button><button data-answer="triangle">△</button></div></div><p class="form-error" id="captcha-error"></p>`;
+  content.innerHTML = `<p class="eyebrow"><span class="eyebrow-line"></span> one last check</p><h2>Quick human<br><em>check.</em></h2><p class="modal-lead">Select both tiles that show the same shape. This keeps your learner space personal.</p><div class="captcha-box"><div class="captcha-prompt">Select all <strong>triangles</strong></div><div class="captcha-tiles captcha-grid"><button data-answer="circle">○</button><button data-answer="triangle">△</button><button data-answer="star">✦</button><button data-answer="triangle">△</button><button data-answer="square">□</button><button data-answer="moon">☾</button></div></div><p class="form-error" id="captcha-error"></p>`;
+  let selected = 0;
   content.querySelectorAll('[data-answer]').forEach(tile => tile.addEventListener('click', () => {
-    if (tile.dataset.answer === 'star') enterApp();
-    else document.querySelector('#captcha-error').textContent = 'Not quite. Look for the five-point spark.';
+    if (tile.classList.contains('selected')) return;
+    if (tile.dataset.answer !== 'triangle') {
+      document.querySelector('#captcha-error').textContent = 'One of those shapes does not belong. Try again.';
+      content.querySelectorAll('.captcha-tiles button').forEach(item => item.classList.remove('selected'));
+      selected = 0;
+      return;
+    }
+    tile.classList.add('selected');
+    selected += 1;
+    if (selected === 2) { document.querySelector('#captcha-error').textContent = 'Check complete.'; setTimeout(enterSecretGames, 260); }
   }));
 }
 
 function enterApp() {
   closeRegister();
-  document.body.innerHTML = `<div class="app-shell"><aside class="app-sidebar"><a class="brand" href="#"><span class="brand-mark">◒</span><span>ORBIT<span class="brand-dot">.</span></span></a><div class="user-chip"><div class="user-avatar">73</div><div><strong>Orbit learner</strong><small>Year 10 · 7368</small></div></div><nav class="app-nav"><button class="active" data-view="home">⌂ <span>Overview</span></button><button data-view="practice">◎ <span>Practice</span></button><button data-view="games">✦ <span>Games lab</span></button><button data-view="ask">✎ <span>Ask Orbit</span></button></nav><div class="sidebar-bottom"><div class="streak-mini"><span>✦</span><div><strong>3 days</strong><small>current streak</small></div></div><button class="logout" id="logout">↩ Sign out</button></div></aside><main class="app-main" id="app-main"></main></div>`;
+  document.body.innerHTML = `<div class="app-shell"><aside class="app-sidebar"><a class="brand" href="#"><span class="brand-mark">◒</span><span>ORBIT<span class="brand-dot">.</span></span></a><div class="user-chip"><div class="user-avatar">73</div><div><strong>Orbit learner</strong><small>Year 10 · 7368</small></div></div><nav class="app-nav"><button class="active" data-view="home">⌂ <span>Overview</span></button><button data-view="practice">◎ <span>Practice</span></button><button data-view="ask">✎ <span>Ask Orbit</span></button></nav><div class="sidebar-bottom"><div class="streak-mini"><span>✦</span><div><strong>3 days</strong><small>current streak</small></div></div><button class="logout" id="logout">↩ Sign out</button></div></aside><main class="app-main" id="app-main"></main></div>`;
   renderView('home');
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('[data-view]').forEach(item => item.classList.remove('active')); button.classList.add('active'); renderView(button.dataset.view); }));
   document.querySelector('#logout').addEventListener('click', () => window.location.reload());
+}
+
+function enterSecretGames() {
+  closeRegister();
+  document.body.innerHTML = `<main class="secret-arcade"><header class="arcade-header"><div><p class="arcade-kicker">connection established · private channel</p><h1>NEON<span>//</span>ARCADE</h1></div><button class="arcade-exit" id="arcade-exit">Return to Orbit ↗</button></header><section class="arcade-intro"><p class="arcade-kicker">no homework beyond this point</p><h2>Pick your <em>escape.</em></h2><p>Two quick games. No scores to revise. Just beat your best.</p></section><section class="arcade-grid"><article class="arcade-card racer-card"><div class="arcade-card-head"><span>01 / RACE</span><span id="race-score">BEST 0</span></div><canvas id="race-canvas" width="520" height="330"></canvas><div class="arcade-controls"><button class="arcade-button" id="start-race">Start race</button><span>Use ← → to dodge</span></div></article><article class="arcade-card aim-card"><div class="arcade-card-head"><span>02 / AIM</span><span id="aim-score">0 HITS</span></div><div class="aim-arena" id="aim-arena"><button class="aim-target" id="aim-target" aria-label="Target"></button><div class="aim-message">Click start, then hit 10 targets.</div></div><div class="arcade-controls"><button class="arcade-button" id="start-aim">Start aim run</button><span>Click the targets</span></div></article></section></main>`;
+  document.querySelector('#arcade-exit').addEventListener('click', () => window.location.reload());
+  wireRacer();
+  wireAim();
 }
 
 function renderView(view) {
@@ -103,3 +120,38 @@ function checkRevisionAnswer(answerIndex, question) {
 }
 function wireGames() { document.querySelectorAll('[data-game]').forEach(button => button.addEventListener('click', () => { const status = document.querySelector('#game-status'); const math = button.dataset.game === 'math'; status.innerHTML = `<div class="game-play"><p class="eyebrow">${math ? 'number navigator' : 'element rush'}</p><h2>${math ? 'What is 7 × 8?' : 'What is the symbol for oxygen?'}</h2><div class="game-options">${(math ? ['54', '56', '64'] : ['Ox', 'O', 'Og']).map(answer => `<button>${answer}</button>`).join('')}</div></div>`; status.querySelectorAll('button').forEach(answer => answer.addEventListener('click', () => { answer.classList.add((math && answer.textContent === '56') || (!math && answer.textContent === 'O') ? 'correct' : 'wrong'); })); })); }
 function wireChat() { const form = document.querySelector('#chat-form'); const input = document.querySelector('#chat-input'); const messages = document.querySelector('.chat-messages'); document.querySelectorAll('.suggestions button').forEach(button => button.addEventListener('click', () => { input.value = button.textContent; form.requestSubmit(); })); form.addEventListener('submit', event => { event.preventDefault(); const question = input.value.trim(); if (!question) return; messages.insertAdjacentHTML('beforeend', `<div class="message user">${question}</div><div class="message bot">Here is a way in: start with what you know, draw the relationship between the ideas, and test yourself with one example. For <strong>${question}</strong>, I would begin by defining the key term and then work through a simple case together.</div>`); input.value = ''; messages.scrollTop = messages.scrollHeight; }); }
+
+function wireRacer() {
+  const canvas = document.querySelector('#race-canvas');
+  const context = canvas.getContext('2d');
+  const start = document.querySelector('#start-race');
+  const scoreLabel = document.querySelector('#race-score');
+  let frameId; let running = false; let score = 0; let lane = 1; let obstacles = [];
+  const keys = new Set();
+  document.addEventListener('keydown', event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') keys.add(event.key); });
+  document.addEventListener('keyup', event => keys.delete(event.key));
+  function draw() {
+    context.fillStyle = '#222938'; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = '#414b5d'; context.lineWidth = 3;
+    for (let x = 85; x < canvas.width; x += 175) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, canvas.height); context.stroke(); }
+    context.strokeStyle = '#f6f1df'; context.setLineDash([18, 19]); context.lineWidth = 2;
+    context.beginPath(); context.moveTo(173, 0); context.lineTo(173, canvas.height); context.moveTo(347, 0); context.lineTo(347, canvas.height); context.stroke(); context.setLineDash([]);
+    if (running) { if (keys.has('ArrowLeft')) lane = Math.max(0, lane - .08); if (keys.has('ArrowRight')) lane = Math.min(2, lane + .08); }
+    const playerX = 55 + lane * 175;
+    context.fillStyle = '#55d6c0'; context.beginPath(); context.moveTo(playerX + 30, 275); context.lineTo(playerX + 8, 315); context.lineTo(playerX + 52, 315); context.closePath(); context.fill();
+    obstacles.forEach(obstacle => { obstacle.y += 4; context.fillStyle = '#f26e5d'; context.fillRect(55 + obstacle.lane * 175, obstacle.y, 44, 38); });
+    obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height + 40);
+    if (running && Math.random() < .035) obstacles.push({ lane: Math.floor(Math.random() * 3), y: -40 });
+    if (running) { score += 1; scoreLabel.textContent = `SCORE ${Math.floor(score / 10)}`; const hit = obstacles.some(obstacle => obstacle.lane === Math.round(lane) && obstacle.y > 250 && obstacle.y < 315); if (hit) { running = false; start.textContent = 'Race again'; } }
+    frameId = requestAnimationFrame(draw);
+  }
+  start.addEventListener('click', () => { cancelAnimationFrame(frameId); score = 0; lane = 1; obstacles = []; running = true; start.textContent = 'Restart race'; draw(); });
+  draw();
+}
+
+function wireAim() {
+  const arena = document.querySelector('#aim-arena'); const target = document.querySelector('#aim-target'); const start = document.querySelector('#start-aim'); const scoreLabel = document.querySelector('#aim-score'); let hits = 0; let active = false;
+  function moveTarget() { target.style.left = `${Math.random() * (arena.clientWidth - 45)}px`; target.style.top = `${Math.random() * (arena.clientHeight - 45)}px`; }
+  start.addEventListener('click', () => { hits = 0; active = true; arena.classList.add('running'); scoreLabel.textContent = '0 HITS'; start.textContent = 'Restart aim run'; moveTarget(); });
+  target.addEventListener('click', () => { if (!active) return; hits += 1; scoreLabel.textContent = `${hits} HITS`; if (hits >= 10) { active = false; arena.classList.remove('running'); start.textContent = 'Play again'; arena.querySelector('.aim-message').textContent = 'Run complete. Nice reflexes.'; } else moveTarget(); });
+}
