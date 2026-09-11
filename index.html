@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbit Learning | Revision that moves</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Orbit Learning home"><span class="brand-mark">◒</span><span>ORBIT<span class="brand-dot">.</span></span></a>
+    <nav class="nav-links" aria-label="Main navigation"><a href="#subjects">Subjects</a><a href="#how-it-works">How it works</a><a href="#streak">Your streak</a></nav>
+    <button class="button button-dark header-register" data-open-register>Register <span>↗</span></button>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy"><p class="eyebrow"><span class="eyebrow-line"></span> revision, reimagined</p><h1>Make your<br><em>next move</em><br>count.</h1><p class="hero-intro">A calmer way to revise maths and science. Build your streak, sharpen your thinking, and leave the blank page behind.</p><div class="hero-actions"><button class="button button-coral" data-open-register>Start learning <span>→</span></button><a class="text-link" href="#subjects">Explore subjects <span>↓</span></a></div><div class="proof-row"><div class="avatar-stack"><span>JM</span><span>AK</span><span>LP</span><span>+</span></div><p><strong>12,480</strong> learners are in orbit</p></div></div>
+      <div class="hero-visual" aria-label="Orbital learning illustration"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="planet"><span>O</span></div><div class="satellite satellite-one"><span>π</span></div><div class="satellite satellite-two"><span>+</span></div><div class="satellite satellite-three"><span>⚛</span></div><div class="visual-note note-top"><span class="mini-star">✦</span><strong>Today</strong><small>10 min · Physics</small></div><div class="visual-note note-bottom"><strong>3 day streak</strong><span>Keep going →</span></div><span class="spark spark-a">✦</span><span class="spark spark-b">✦</span><span class="spark spark-c">✦</span></div>
+    </section>
+    <section class="ticker"><div>Maths <span>✦</span></div><div>Biology <span>✦</span></div><div>Chemistry <span>✦</span></div><div>Physics <span>✦</span></div><div>Computer science <span>✦</span></div></section>
+    <section class="feature-section" id="subjects"><div class="section-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> pick your orbit</p><h2>Small steps.<br><em>Big lift.</em></h2></div><p>Whether you are revising for a test or just curious, Orbit makes the hard bits feel possible.</p></div><div class="subject-grid"><article class="subject-card card-maths"><div class="card-top"><span class="card-icon">∑</span><span class="card-arrow">↗</span></div><h3>Mathematics</h3><p>Patterns, proof, and problem solving for every year.</p><div class="card-foot"><span>Years 7—13</span><span>↗</span></div></article><article class="subject-card card-science"><div class="card-top"><span class="card-icon">⚛</span><span class="card-arrow">↗</span></div><h3>Science</h3><p>Explore the living, physical, and chemical worlds.</p><div class="card-foot"><span>Years 7—13</span><span>↗</span></div></article><article class="subject-card card-ai"><div class="card-top"><span class="card-icon">✦</span><span class="card-arrow">↗</span></div><h3>Study AI</h3><p>Ask better questions. Get unstuck. Keep your voice.</p><div class="card-foot"><span>Always on</span><span>↗</span></div></article></div></section>
+    <section class="how-section" id="how-it-works"><div class="how-art"><div class="art-ring"></div><div class="art-equation">v = u + at</div><span class="art-star">✦</span></div><div class="how-copy"><p class="eyebrow"><span class="eyebrow-line"></span> your learning loop</p><h2>Curiosity is<br><em>a strategy.</em></h2><div class="steps"><div class="step"><span>01</span><div><h3>Choose your year</h3><p>Get questions pitched exactly where you are.</p></div></div><div class="step"><span>02</span><div><h3>Play your way in</h3><p>Turn five spare minutes into real progress.</p></div></div><div class="step"><span>03</span><div><h3>See it click</h3><p>Track what you know and what comes next.</p></div></div></div></div></section>
+    <section class="bottom-cta" id="streak"><p class="eyebrow"><span class="eyebrow-line"></span> ready when you are</p><h2>Put your brain<br><em>in motion.</em></h2><button class="button button-dark" data-open-register>Join Orbit <span>↗</span></button></section>
+  </main>
+  <footer><span>© 2025 Orbit Learning</span><span>Made for curious minds</span><span>Privacy · Help</span></footer>
+  <div class="modal-backdrop" id="register-modal" hidden><section class="register-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close" data-close-register aria-label="Close registration">×</button><div class="modal-orbit"><div>O</div></div><div class="modal-content" id="register-content"><p class="eyebrow"><span class="eyebrow-line"></span> create your orbit</p><h2 id="modal-title">Where should<br>we <em>start?</em></h2><p class="modal-lead">Enter your learner code to set up your personal revision space.</p><form id="code-form"><label for="learner-code">Learner code</label><div class="code-input"><input id="learner-code" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 7368" autocomplete="off"><span>↵</span></div><p class="form-error" id="code-error"></p><button class="button button-coral full-button" type="submit">Continue <span>→</span></button></form></div></section></div>
+  <script src="app.js"></script>
+</body>
+</html>
