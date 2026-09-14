@@ -11,7 +11,7 @@ const CONFIG = {
   driftBoostThreshold: 0.7,
   boostSpeed: 62,
   boostDuration: 1.8,
-  aiSpeed: 25
+  aiSpeed: 32
 };
 
 const keys = { up: false, down: false, left: false, right: false, drift: false };
@@ -88,9 +88,64 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.Mes
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
-makeRibbon(roadWidth + 5, 0xd14a38, 0.14);
+makeRibbon(roadWidth + 7, 0x477747, 0.14);
 const trackMesh = makeRibbon(roadWidth, 0x30343a, 0.22, 0.02);
-makeRibbon(1.1, 0xf4e8bd, 0.3, 0.04);
+
+function makeKerbs() {
+  const vertices = [];
+  const colors = [];
+  const indices = [];
+  const kerbWidth = 2.2;
+  const segmentLength = 12;
+  const red = new THREE.Color(0xd52f35);
+  const white = new THREE.Color(0xf5f1df);
+  const sideOffset = routeSamples * 2;
+  for (let sideIndex = -1; sideIndex <= 1; sideIndex += 2) {
+    for (let index = 0; index < routeSamples; index += 1) {
+      const point = routePoints[index];
+      const tangent = routeTangents[index];
+      const side = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(sideIndex);
+      const inner = point.clone().addScaledVector(side, roadWidth / 2);
+      const outer = point.clone().addScaledVector(side, roadWidth / 2 + kerbWidth);
+      vertices.push(inner.x, 0.38, inner.z, outer.x, 0.38, outer.z);
+      const color = Math.floor(index / segmentLength) % 2 === 0 ? red : white;
+      colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+      const next = (index + 1) % routeSamples;
+      const offset = sideIndex === -1 ? 0 : sideOffset;
+      indices.push(offset + index * 2, offset + next * 2, offset + index * 2 + 1);
+      indices.push(offset + index * 2 + 1, offset + next * 2, offset + next * 2 + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const kerbs = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72 }));
+  kerbs.receiveShadow = true;
+  scene.add(kerbs);
+}
+
+makeKerbs();
+
+function makeStartGrid() {
+  const progress = 0.985;
+  const point = routePosition(progress, 0, 0.42);
+  const tangent = routeTangents[Math.floor(progress * routeSamples)];
+  const grid = new THREE.Group();
+  for (let row = 0; row < 3; row += 1) {
+    for (let column = -2; column < 2; column += 1) {
+      const tile = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 1.2), new THREE.MeshStandardMaterial({ color: (row + column) % 2 === 0 ? 0xf7f7f2 : 0x20242a, roughness: 0.7 }));
+      tile.position.set(column * 2.2, 0, row * 1.35 - 1.35);
+      grid.add(tile);
+    }
+  }
+  grid.position.copy(point);
+  grid.rotation.y = Math.atan2(tangent.x, tangent.z);
+  scene.add(grid);
+}
+
+makeStartGrid();
 
 function addScenery() {
   const hillMaterial = new THREE.MeshStandardMaterial({ color: 0x347d39, roughness: 1 });
@@ -337,6 +392,15 @@ function updatePlayer(delta) {
     player.speed = THREE.MathUtils.clamp(player.speed, CONFIG.reverseSpeed, maxSpeed);
     const forward = new THREE.Vector3(Math.sin(player.angle), 0, Math.cos(player.angle));
     playerKart.position.addScaledVector(forward, player.speed * delta);
+    if (!shortcutPaths.some(path => path.some(point => playerKart.position.distanceToSquared(point) < 55))) {
+      const correctedProgress = getNearestRouteProgress(playerKart.position);
+      const correctedIndex = Math.floor(correctedProgress * routeSamples);
+      const correctedPoint = routePoints[correctedIndex];
+      const correctedSide = new THREE.Vector3(-routeTangents[correctedIndex].z, 0, routeTangents[correctedIndex].x);
+      const lateralOffset = playerKart.position.clone().sub(correctedPoint).dot(correctedSide);
+      const boundedOffset = THREE.MathUtils.clamp(lateralOffset, -roadWidth * 0.43, roadWidth * 0.43);
+      playerKart.position.copy(correctedPoint).addScaledVector(correctedSide, boundedOffset).setY(0);
+    }
     playerKart.rotation.y = player.angle;
     playerKart.rotation.z = THREE.MathUtils.lerp(playerKart.rotation.z, keys.drift ? (keys.left ? 0.18 : -0.18) : 0, 0.12);
     playerKart.userData.wheels.forEach(wheel => { wheel.rotation.x += player.speed * delta * 1.6; });
