@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Strike Counter, a browser-based first-person shooter game.">
+  <title>Strike Counter | Orbit Arcade</title>
+  <style>
+    :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; overflow: hidden; background: #87ceeb; user-select: none; }
+    canvas { display: block; }
+    #hud { position: fixed; left: 18px; bottom: 18px; z-index: 2; padding: 13px 16px; border: 1px solid rgba(255,255,255,.35); background: rgba(4,8,12,.74); color: #ffcc00; font-size: 13px; line-height: 1.8; pointer-events: none; text-shadow: 0 1px 4px #000; }
+    #hud strong { display: block; margin-bottom: 3px; color: #fff; font-size: 14px; letter-spacing: .1em; }
+    #crosshair { position: fixed; top: 50%; left: 50%; z-index: 2; color: #00ff00; font: 26px/1 monospace; transform: translate(-50%, -50%); pointer-events: none; text-shadow: 0 1px 4px #000; }
+    #back { position: fixed; right: 18px; top: 18px; z-index: 2; padding: 10px 13px; border: 1px solid rgba(255,255,255,.35); background: rgba(4,8,12,.7); color: #fff; font: 11px inherit; text-decoration: none; }
+    #back:hover { border-color: #ffcc00; color: #ffcc00; }
+    #instructions, #game-over { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding: 20px; background: rgba(4,8,12,.28); }
+    #game-over { display: none; }
+    #instructions section, #game-over section { width: min(470px, 100%); padding: 34px; border: 1px solid rgba(255,255,255,.4); background: rgba(4,8,12,.86); color: #fff; text-align: center; box-shadow: 10px 10px 0 rgba(4,8,12,.25); }
+    #instructions h1, #game-over h1 { margin: 0 0 10px; color: #ffcc00; font: 700 clamp(36px, 8vw, 66px)/.9 'Space Grotesk', sans-serif; letter-spacing: -.08em; }
+    #instructions p, #game-over p { margin: 0 0 22px; color: #dce6ea; font: 13px/1.6 'Space Grotesk', sans-serif; }
+    .game-button { padding: 13px 20px; border: 0; background: #ffcc00; color: #111; font: 700 12px inherit; cursor: pointer; }
+    .game-button:hover { background: #fff; }
+    @media (max-width: 600px) { #hud { left: 12px; bottom: 12px; font-size: 10px; } #back { top: 12px; right: 12px; } }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="crosshair" aria-hidden="true">+</div>
+  <div id="hud"><strong>STRIKE COUNTER</strong>HEALTH: <span id="health">100</span> | AMMO: <span id="ammo">30</span>/90<br>ENEMIES: <span id="enemies">0</span></div>
+  <a id="back" href="arcade.html">EXIT TO ARCADE ↗</a>
+  <div id="instructions"><section><h1>Strike Counter</h1><p>Clear the arena, manage your magazine, and survive the enemy push.</p><p><b>WASD</b> move · <b>Space</b> jump · <b>Click</b> shoot · <b>R</b> reload</p><button class="game-button" id="start-game" type="button">CLICK TO PLAY</button></section></div>
+  <div id="game-over"><section><h1 id="game-over-title">ROUND OVER</h1><p id="game-over-copy">The arena is clear.</p><button class="game-button" id="restart-game" type="button">RESTART ROUND</button></section></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
+    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+    sun.position.set(20, 40, 20);
+    scene.add(sun);
+
+    const controls = new PointerLockControls(camera, document.body);
+    const instructions = document.querySelector('#instructions');
+    const gameOver = document.querySelector('#game-over');
+    document.querySelector('#start-game').addEventListener('click', () => controls.lock());
+    controls.addEventListener('lock', () => { instructions.style.display = 'none'; gameOver.style.display = 'none'; });
+    controls.addEventListener('unlock', () => { if (!gameOver.dataset.finished) instructions.style.display = 'grid'; });
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    const mapGroup = new THREE.Group();
+    const wallMaterial = new THREE.MeshLambertMaterial({ color: 0xc2b280 });
+    const boxMaterial = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+    const floorGeometry = new THREE.PlaneGeometry(100, 100);
+    floorGeometry.rotateX(-Math.PI / 2);
+    scene.add(new THREE.Mesh(floorGeometry, new THREE.MeshLambertMaterial({ color: 0x555555 })));
+    function createBox(x, y, z, width, height, depth, material = boxMaterial) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+      mesh.position.set(x, y + height / 2, z);
+      mapGroup.add(mesh);
+    }
+    createBox(0, 0, -50, 100, 10, 2, wallMaterial);
+    createBox(0, 0, 50, 100, 10, 2, wallMaterial);
+    createBox(-50, 0, 0, 2, 10, 100, wallMaterial);
+    createBox(50, 0, 0, 2, 10, 100, wallMaterial);
+    createBox(0, 0, 0, 4, 3, 4);
+    createBox(-10, 0, 15, 6, 4, 3);
+    createBox(15, 0, -10, 3, 3, 8);
+    createBox(-20, 0, -20, 8, 4, 4);
+    createBox(20, 0, 20, 4, 4, 4);
+    scene.add(mapGroup);
+
+    const gunGroup = new THREE.Group();
+    const gunMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.8), gunMaterial);
+    gunBody.position.set(0.2, -0.25, -0.5);
+    gunGroup.add(gunBody);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4), gunMaterial);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0.2, -0.2, -0.9);
+    gunGroup.add(barrel);
+    camera.add(gunGroup);
+    scene.add(camera);
+
+    let playerHealth = 100;
+    let ammo = 30;
+    let reserveAmmo = 90;
+    let moveForward = false;
+    let moveBackward = false;
+    let moveLeft = false;
+    let moveRight = false;
+    let canJump = false;
+    let recoilOffset = 0;
+    let roundFinished = false;
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const keys = new Set();
+    addEventListener('keydown', event => { keys.add(event.code); if (event.code === 'KeyR') reload(); });
+    addEventListener('keyup', event => keys.delete(event.code));
+
+    const enemies = [];
+    const enemyMaterial = new THREE.MeshLambertMaterial({ color: 0xcc3333 });
+    function spawnEnemy(x, z) {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.8), enemyMaterial);
+      mesh.position.set(x, 0.9, z);
+      scene.add(mesh);
+      enemies.push({ mesh, hp: 100, lastShoot: 0 });
+    }
+    spawnEnemy(-15, -15);
+    spawnEnemy(15, -20);
+    spawnEnemy(0, 25);
+    spawnEnemy(-25, 10);
+
+    const healthElement = document.querySelector('#health');
+    const ammoElement = document.querySelector('#ammo');
+    const enemiesElement = document.querySelector('#enemies');
+    function updateHud() {
+      healthElement.textContent = Math.max(0, playerHealth);
+      ammoElement.textContent = ammo;
+      enemiesElement.textContent = enemies.length;
+    }
+    function endRound(title, copy) {
+      roundFinished = true;
+      gameOver.dataset.finished = 'true';
+      document.querySelector('#game-over-title').textContent = title;
+      document.querySelector('#game-over-copy').textContent = copy;
+      gameOver.style.display = 'grid';
+      controls.unlock();
+    }
+    document.querySelector('#restart-game').addEventListener('click', () => location.reload());
+
+    const raycaster = new THREE.Raycaster();
+    document.addEventListener('mousedown', event => {
+      if (controls.isLocked && event.button === 0) shoot();
+    });
+    function shoot() {
+      if (ammo <= 0 || roundFinished) return;
+      ammo -= 1;
+      recoilOffset = 0.08;
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const hit = raycaster.intersectObjects(enemies.map(enemy => enemy.mesh))[0];
+      if (hit) {
+        const enemy = enemies.find(item => item.mesh === hit.object);
+        enemy.hp -= 35;
+        if (enemy.hp <= 0) {
+          scene.remove(enemy.mesh);
+          enemies.splice(enemies.indexOf(enemy), 1);
+          if (enemies.length === 0) endRound('ROUND CLEAR', 'Every target has been neutralised.');
+        }
+      }
+      updateHud();
+    }
+    function reload() {
+      if (ammo < 30 && reserveAmmo > 0) {
+        const reloadAmount = Math.min(30 - ammo, reserveAmmo);
+        ammo += reloadAmount;
+        reserveAmmo -= reloadAmount;
+        updateHud();
+      }
+    }
+
+    updateHud();
+    camera.position.set(0, 1.6, 30);
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.05);
+      if (controls.isLocked && !roundFinished) {
+        velocity.x -= velocity.x * 10 * delta;
+        velocity.z -= velocity.z * 10 * delta;
+        velocity.y -= 30 * delta;
+        moveForward = keys.has('KeyW');
+        moveBackward = keys.has('KeyS');
+        moveLeft = keys.has('KeyA');
+        moveRight = keys.has('KeyD');
+        if (keys.has('Space') && canJump) { velocity.y = 12; canJump = false; }
+        direction.set(Number(moveRight) - Number(moveLeft), 0, Number(moveForward) - Number(moveBackward)).normalize();
+        if (moveForward || moveBackward) velocity.z -= direction.z * 60 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 60 * delta;
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
+        camera.position.y += velocity.y * delta;
+        if (camera.position.y < 1.6) { camera.position.y = 1.6; velocity.y = 0; canJump = true; }
+        if (recoilOffset > 0) { gunGroup.position.z = recoilOffset; recoilOffset -= delta * 0.5; } else gunGroup.position.z = 0;
+
+        const now = performance.now();
+        enemies.forEach(enemy => {
+          enemy.mesh.lookAt(camera.position.x, enemy.mesh.position.y, camera.position.z);
+          const distance = enemy.mesh.position.distanceTo(camera.position);
+          if (distance > 5) {
+            const enemyDirection = new THREE.Vector3().subVectors(camera.position, enemy.mesh.position).normalize();
+            enemy.mesh.position.x += enemyDirection.x * 2 * delta;
+            enemy.mesh.position.z += enemyDirection.z * 2 * delta;
+          }
+          if (distance < 20 && now - enemy.lastShoot > 1500) {
+            enemy.lastShoot = now;
+            playerHealth -= 10;
+            updateHud();
+            if (playerHealth <= 0) endRound('GAME OVER', 'The arena got the better of you.');
+          }
+        });
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Thunder of War, a browser-based air combat game.">
+  <title>Thunder of War | Orbit Arcade</title>
+  <style>
+    :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; overflow: hidden; background: #6eb1ff; user-select: none; }
+    canvas { display: block; }
+    #hud { position: fixed; top: 18px; left: 18px; z-index: 2; padding: 13px 16px; border: 1px solid rgba(255,255,255,.4); background: rgba(4,12,21,.72); color: #8dff78; font-size: 12px; line-height: 1.8; pointer-events: none; text-shadow: 0 0 8px rgba(141,255,120,.35); }
+    #hud strong { display: block; margin-bottom: 3px; color: #fff; font-size: 14px; letter-spacing: .1em; }
+    #crosshair { position: fixed; top: 50%; left: 50%; z-index: 2; color: #8dff78; font-size: 24px; transform: translate(-50%, -50%); pointer-events: none; text-shadow: 0 0 8px #000; }
+    #controls { position: fixed; bottom: 18px; left: 50%; z-index: 2; max-width: calc(100vw - 36px); padding: 9px 13px; transform: translateX(-50%); background: rgba(4,12,21,.68); color: #e7f1ff; font-size: 10px; text-align: center; pointer-events: none; }
+    #back { position: fixed; right: 18px; top: 18px; z-index: 2; padding: 10px 13px; border: 1px solid rgba(255,255,255,.4); color: #fff; background: rgba(4,12,21,.68); font: 11px inherit; text-decoration: none; }
+    #back:hover { border-color: #8dff78; color: #8dff78; }
+    #start-screen { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding: 20px; background: rgba(4,12,21,.25); }
+    #start-screen section { width: min(470px, 100%); padding: 34px; border: 1px solid rgba(255,255,255,.45); background: rgba(4,12,21,.84); box-shadow: 10px 10px 0 rgba(4,12,21,.25); text-align: center; }
+    #start-screen h1 { margin: 0 0 10px; color: #ffcc00; font: 700 clamp(34px, 8vw, 64px)/.9 'Space Grotesk', sans-serif; letter-spacing: -.08em; }
+    #start-screen p { margin: 0 0 22px; color: #dbe7f2; font: 13px/1.6 'Space Grotesk', sans-serif; }
+    #start-game { padding: 13px 20px; border: 0; background: #8dff78; color: #07101a; font: 700 12px inherit; cursor: pointer; }
+    #start-game:hover { background: #fff; }
+    #mission-complete { position: fixed; inset: 0; z-index: 3; display: none; place-items: center; color: #ffcc00; font: 700 clamp(28px, 7vw, 72px) 'Space Grotesk', sans-serif; letter-spacing: -.06em; text-shadow: 0 0 24px #f00, 4px 4px #07101a; pointer-events: none; }
+    @media (max-width: 600px) { #hud { top: 12px; left: 12px; font-size: 10px; } #back { top: auto; right: 12px; bottom: 53px; } #controls { bottom: 12px; } }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="crosshair" aria-hidden="true">+</div>
+  <div id="hud"><strong>THUNDER OF WAR</strong>SPEED: <span id="speed">0</span> km/h<br>ALT: <span id="alt">0</span> m<br>THROTTLE: <span id="throttle">100</span>%<br>TARGETS LEFT: <span id="targets">0</span></div>
+  <div id="controls"><b>W / S</b> pitch · <b>A / D</b> roll · <b>Q / E</b> yaw · <b>Shift / Ctrl</b> throttle · <b>Space</b> fire</div>
+  <a id="back" href="arcade.html">EXIT TO ARCADE ↗</a>
+  <div id="mission-complete">MISSION COMPLETE</div>
+  <div id="start-screen"><section><h1>Thunder of War</h1><p>Climb into the cockpit, keep your speed up, and clear the skies before your ammunition runs dry.</p><button id="start-game" type="button">SCRAMBLE</button></section></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x6eb1ff);
+    scene.fog = new THREE.FogExp2(0x6eb1ff, 0.0005);
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 5000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    sun.position.set(500, 1000, 500);
+    scene.add(sun);
+
+    const terrainGeometry = new THREE.PlaneGeometry(10000, 10000, 64, 64);
+    terrainGeometry.rotateX(-Math.PI / 2);
+    const terrainPositions = terrainGeometry.attributes.position;
+    for (let index = 0; index < terrainPositions.count; index += 1) {
+      const x = terrainPositions.getX(index);
+      const z = terrainPositions.getZ(index);
+      terrainPositions.setY(index, Math.sin(x * 0.002) * Math.cos(z * 0.002) * 150);
+    }
+    terrainGeometry.computeVertexNormals();
+    const terrain = new THREE.Mesh(terrainGeometry, new THREE.MeshLambertMaterial({ color: 0x3b5828 }));
+    scene.add(terrain);
+
+    function createAirplane(color = 0x556b2f) {
+      const group = new THREE.Group();
+      const material = new THREE.MeshLambertMaterial({ color });
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.8, 5, 8), material);
+      body.geometry.rotateX(Math.PI / 2);
+      group.add(body);
+      const wings = new THREE.Mesh(new THREE.BoxGeometry(7, 0.1, 1.2), material);
+      wings.position.set(0, 0, 0.2);
+      group.add(wings);
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.6), material);
+      tail.position.set(0, 0.2, -2.1);
+      group.add(tail);
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.6), material);
+      fin.position.set(0, 0.6, -2.1);
+      group.add(fin);
+      return group;
+    }
+
+    const playerPlane = createAirplane(0x4a5d4e);
+    playerPlane.position.set(0, 300, 0);
+    scene.add(playerPlane);
+
+    let speed = 80;
+    let throttle = 100;
+    const maxSpeed = 150;
+    const minSpeed = 30;
+    const keys = {};
+    let gameStarted = false;
+    addEventListener('keydown', event => { keys[event.code] = true; });
+    addEventListener('keyup', event => { keys[event.code] = false; });
+    document.querySelector('#start-game').addEventListener('click', () => {
+      gameStarted = true;
+      document.querySelector('#start-screen').style.display = 'none';
+    });
+
+    const bullets = [];
+    const targets = [];
+    function spawnTargets() {
+      for (let index = 0; index < 8; index += 1) {
+        const target = createAirplane(0xa93226);
+        target.position.set((Math.random() - 0.5) * 2000, 150 + Math.random() * 300, (Math.random() - 0.5) * 2000);
+        scene.add(target);
+        targets.push(target);
+      }
+    }
+    spawnTargets();
+
+    let lastShootTime = 0;
+    function shoot() {
+      const now = performance.now();
+      if (now - lastShootTime < 120) return;
+      lastShootTime = now;
+      const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+      bullet.position.copy(playerPlane.position);
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(playerPlane.quaternion);
+      bullet.userData = { velocity: forward.multiplyScalar(speed + 300), alive: 0 };
+      scene.add(bullet);
+      bullets.push(bullet);
+    }
+
+    const hudSpeed = document.querySelector('#speed');
+    const hudAlt = document.querySelector('#alt');
+    const hudThrottle = document.querySelector('#throttle');
+    const hudTargets = document.querySelector('#targets');
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.05);
+      if (gameStarted) {
+        const pitchSpeed = 1.2 * delta;
+        const rollSpeed = 1.8 * delta;
+        const yawSpeed = 0.6 * delta;
+        if (keys.KeyW || keys.ArrowUp) playerPlane.rotateX(-pitchSpeed);
+        if (keys.KeyS || keys.ArrowDown) playerPlane.rotateX(pitchSpeed);
+        if (keys.KeyA || keys.ArrowLeft) playerPlane.rotateZ(rollSpeed);
+        if (keys.KeyD || keys.ArrowRight) playerPlane.rotateZ(-rollSpeed);
+        if (keys.KeyQ) playerPlane.rotateY(yawSpeed);
+        if (keys.KeyE) playerPlane.rotateY(-yawSpeed);
+        if (keys.ShiftLeft || keys.ShiftRight) throttle = Math.min(100, throttle + 30 * delta);
+        if (keys.ControlLeft || keys.ControlRight) throttle = Math.max(0, throttle - 30 * delta);
+        if (keys.Space) shoot();
+
+        const targetSpeed = minSpeed + (throttle / 100) * (maxSpeed - minSpeed);
+        speed += (targetSpeed - speed) * delta;
+        const forwardDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(playerPlane.quaternion);
+        playerPlane.position.addScaledVector(forwardDirection, speed * delta);
+        if (playerPlane.position.y < 10) playerPlane.position.y = 10;
+
+        const cameraOffset = new THREE.Vector3(0, 3, -12).applyQuaternion(playerPlane.quaternion);
+        camera.position.lerp(playerPlane.position.clone().add(cameraOffset), 0.1);
+        const lookAtOffset = new THREE.Vector3(0, 1, 20).applyQuaternion(playerPlane.quaternion);
+        camera.lookAt(playerPlane.position.clone().add(lookAtOffset));
+
+        for (let bulletIndex = bullets.length - 1; bulletIndex >= 0; bulletIndex -= 1) {
+          const bullet = bullets[bulletIndex];
+          bullet.position.addScaledVector(bullet.userData.velocity, delta);
+          bullet.userData.alive += delta;
+          let hitTarget = false;
+          for (let targetIndex = targets.length - 1; targetIndex >= 0; targetIndex -= 1) {
+            if (bullet.position.distanceTo(targets[targetIndex].position) < 4) {
+              scene.remove(targets[targetIndex]);
+              targets.splice(targetIndex, 1);
+              hitTarget = true;
+              break;
+            }
+          }
+          if (hitTarget || bullet.userData.alive > 3) {
+            scene.remove(bullet);
+            bullets.splice(bulletIndex, 1);
+          }
+        }
+        targets.forEach(target => target.rotateY(0.3 * delta));
+        if (targets.length === 0) document.querySelector('#mission-complete').style.display = 'grid';
+      }
+      hudSpeed.textContent = Math.round(speed * 3.6);
+      hudAlt.textContent = Math.round(playerPlane.position.y);
+      hudThrottle.textContent = Math.round(throttle);
+      hudTargets.textContent = targets.length;
+      renderer.render(scene, camera);
+    }
+    animate();
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  </script>
+</body>
+</html>

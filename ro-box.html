@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RO-BOX, an online multiplayer block sandbox.">
+  <title>RO-BOX | Orbit Arcade</title>
+  <style>
+    :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; overflow: hidden; background: #6eb1ff; user-select: none; }
+    canvas { display: block; }
+    #ui { position: fixed; top: 16px; left: 16px; z-index: 2; padding: 13px 16px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; background: rgba(5,12,20,.76); color: #fff; font-size: 11px; line-height: 1.75; pointer-events: none; text-shadow: 0 1px 3px #000; }
+    #ui strong { display: block; color: #63d7ff; font-size: 14px; letter-spacing: .1em; }
+    #crosshair { position: fixed; top: 50%; left: 50%; z-index: 2; color: #fff; font: 25px/1 monospace; transform: translate(-50%, -50%); pointer-events: none; text-shadow: 0 1px 4px #000; }
+    #controls { position: fixed; bottom: 16px; left: 50%; z-index: 2; max-width: calc(100vw - 32px); padding: 9px 13px; transform: translateX(-50%); background: rgba(5,12,20,.72); color: #fff; font-size: 10px; text-align: center; pointer-events: none; }
+    #back { position: fixed; top: 16px; right: 16px; z-index: 2; padding: 9px 12px; border: 1px solid rgba(255,255,255,.4); color: #fff; background: rgba(5,12,20,.72); font: 10px inherit; text-decoration: none; }
+    #back:hover { color: #63d7ff; border-color: #63d7ff; }
+    #join-screen { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding: 20px; background: rgba(5,12,20,.3); }
+    #join-screen section { width: min(500px, 100%); padding: 30px; border: 1px solid rgba(255,255,255,.45); background: rgba(5,12,20,.9); box-shadow: 9px 9px 0 rgba(5,12,20,.25); }
+    #join-screen h1 { margin: 0 0 8px; color: #63d7ff; font: 700 clamp(40px, 9vw, 74px)/.9 'Space Grotesk', sans-serif; letter-spacing: -.08em; }
+    #join-screen p { color: #dbe8ee; font: 13px/1.5 'Space Grotesk', sans-serif; }
+    .network-row { display: flex; gap: 8px; margin-top: 18px; }
+    .network-row input { min-width: 0; flex: 1; padding: 12px; border: 1px solid #455868; background: #101b25; color: #fff; font: 12px inherit; text-transform: uppercase; }
+    .network-row button, #copy-code { padding: 12px 14px; border: 0; background: #63d7ff; color: #07121b; font: 700 11px inherit; cursor: pointer; }
+    .network-row button:hover, #copy-code:hover { background: #fff; }
+    #room-status { min-height: 18px; margin: 15px 0 0; color: #a9c4cf; font-size: 10px; }
+    #room-code { display: none; align-items: center; gap: 10px; margin-top: 16px; color: #fff; font-size: 11px; }
+    #room-code b { color: #ffdb6e; font-size: 15px; letter-spacing: .12em; }
+    #copy-code { padding: 7px 9px; font-size: 10px; }
+    @media (max-width: 600px) { #ui { top: 10px; left: 10px; font-size: 10px; } #back { top: 10px; right: 10px; } #controls { bottom: 10px; } }
+  </style>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <div id="crosshair" aria-hidden="true">+</div>
+  <div id="ui"><strong>RO-BOX</strong>PLAYERS ONLINE: <span id="player-count">1</span><br>BLOCK COLOR: <span id="block-color" style="color:#00a2ff">BLUE</span><br>ROOM: <span id="room-label">OFFLINE</span></div>
+  <div id="controls"><b>WASD / ARROWS</b> walk · <b>SPACE</b> jump · <b>MOUSE</b> orbit · <b>RIGHT CLICK</b> build · <b>MIDDLE CLICK</b> delete · <b>1-4</b> colors</div>
+  <a id="back" href="arcade.html">EXIT TO ARCADE ↗</a>
+  <div id="join-screen"><section><h1>RO-BOX</h1><p>Build a shared block world with friends. Host a room and send the room code, or join a room someone else created.</p><div class="network-row"><button id="host-room" type="button">HOST ROOM</button><input id="room-input" placeholder="ROOM CODE" maxlength="24" autocomplete="off"><button id="join-room" type="button">JOIN</button></div><p id="room-status">Choose host or enter a room code to connect online.</p><div id="room-code">ROOM CODE: <b id="room-code-value"></b><button id="copy-code" type="button">COPY</button></div></section></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x6eb1ff);
+    scene.fog = new THREE.FogExp2(0x6eb1ff, 0.005);
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.position.set(40, 60, 40);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0xa0a0a0, roughness: 0.8 });
+    const basePlate = new THREE.Mesh(new THREE.BoxGeometry(100, 2, 100), baseMaterial);
+    basePlate.position.y = -1;
+    basePlate.receiveShadow = true;
+    scene.add(basePlate);
+    const grid = new THREE.GridHelper(100, 50, 0x000000, 0x444444);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    function createCharacter(shirtColor = 0x00a2ff) {
+      const group = new THREE.Group();
+      const skin = new THREE.MeshStandardMaterial({ color: 0xf5cd27 });
+      const shirt = new THREE.MeshStandardMaterial({ color: shirtColor });
+      const pants = new THREE.MeshStandardMaterial({ color: 0x1b2a35 });
+      const head = new THREE.Mesh(new THREE.BoxGeometry(.8, .8, .8), skin); head.position.y = 2.4; group.add(head);
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, .6), shirt); torso.position.y = 1.4; group.add(torso);
+      const armGeometry = new THREE.BoxGeometry(.5, 1.2, .5);
+      [-.9, .9].forEach(x => { const arm = new THREE.Mesh(armGeometry, skin); arm.position.set(x, 1.4, 0); group.add(arm); });
+      const legGeometry = new THREE.BoxGeometry(.55, 1.2, .55);
+      [-.32, .32].forEach(x => { const leg = new THREE.Mesh(legGeometry, pants); leg.position.set(x, .4, 0); group.add(leg); });
+      group.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
+      return group;
+    }
+
+    const player = createCharacter();
+    scene.add(player);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = .07;
+    controls.minDistance = 4;
+    controls.maxDistance = 20;
+    controls.maxPolarAngle = Math.PI / 2 - .05;
+    camera.position.set(7, 7, 10);
+    controls.target.set(0, 1.5, 0);
+
+    const blockColors = [0x00a2ff, 0xe74c3c, 0x2ecc71, 0xf1c40f];
+    const colorNames = ['BLUE', 'RED', 'GREEN', 'YELLOW'];
+    let currentColorIndex = 0;
+    const blocks = [];
+    const remotePlayers = new Map();
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2(0, 0);
+    const keys = new Set();
+    let velocityY = 0;
+    let grounded = true;
+    let started = false;
+    let peer = null;
+    let hostConnection = null;
+    const connections = new Map();
+    const playerId = `player-${Math.random().toString(36).slice(2, 9)}`;
+    const joinScreen = document.querySelector('#join-screen');
+    const roomStatus = document.querySelector('#room-status');
+    const roomCode = document.querySelector('#room-code');
+    const roomCodeValue = document.querySelector('#room-code-value');
+    const roomLabel = document.querySelector('#room-label');
+    const playerCount = document.querySelector('#player-count');
+
+    function setStatus(message) { roomStatus.textContent = message; }
+    function updatePlayerCount() { playerCount.textContent = String(remotePlayers.size + 1); }
+    function addBlock(position, color, broadcast = true) {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color, roughness: .4 }));
+      block.position.set(position.x, position.y, position.z);
+      block.castShadow = true;
+      block.receiveShadow = true;
+      scene.add(block);
+      blocks.push(block);
+      if (broadcast) broadcastMessage({ type: 'block:add', position, color });
+    }
+    function removeBlock(block, broadcast = true) {
+      scene.remove(block);
+      const index = blocks.indexOf(block);
+      if (index > -1) blocks.splice(index, 1);
+      if (broadcast) broadcastMessage({ type: 'block:remove', position: block.position });
+    }
+    function blockSnapshot() { return blocks.map(block => ({ position: block.position, color: block.material.color.getHex() })); }
+    function broadcastMessage(message, except = null) {
+      connections.forEach(connection => { if (connection !== except && connection.open) connection.send(message); });
+      if (hostConnection && hostConnection !== except && hostConnection.open) hostConnection.send(message);
+    }
+    function addRemote(id, data = {}) {
+      if (!remotePlayers.has(id)) {
+        const mesh = createCharacter(data.color || 0xe74c3c);
+        scene.add(mesh);
+        remotePlayers.set(id, { mesh, target: new THREE.Vector3(data.x || 0, data.y || 0, data.z || 0) });
+        updatePlayerCount();
+      }
+      const remote = remotePlayers.get(id);
+      remote.target.set(data.x || 0, data.y || 0, data.z || 0);
+    }
+    function removeRemote(id) {
+      const remote = remotePlayers.get(id);
+      if (!remote) return;
+      scene.remove(remote.mesh);
+      remotePlayers.delete(id);
+      updatePlayerCount();
+    }
+    function applyMessage(message, sender = null) {
+      if (message.type === 'hello') {
+        addRemote(message.id, message);
+        if (sender?.open) sender.send({ type: 'snapshot', blocks: blockSnapshot(), players: [...remotePlayers.entries()].map(([id, item]) => ({ id, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z })) });
+      }
+      if (message.type === 'state') addRemote(message.id, message);
+      if (message.type === 'leave') removeRemote(message.id);
+      if (message.type === 'block:add') { addBlock(message.position, message.color, false); broadcastMessage(message, sender); }
+      if (message.type === 'block:remove') {
+        const target = blocks.find(block => block.position.distanceTo(new THREE.Vector3(message.position.x, message.position.y, message.position.z)) < .1);
+        if (target) removeBlock(target, false);
+        broadcastMessage(message, sender);
+      }
+      if (message.type === 'snapshot') {
+        message.blocks.forEach(block => addBlock(block.position, block.color, false));
+        message.players.forEach(remote => { if (remote.id !== playerId) addRemote(remote.id, remote); });
+      }
+    }
+    function wireConnection(connection) {
+      connections.set(connection.peer, connection);
+      connection.on('open', () => { connection.send({ type: 'hello', id: playerId, x: player.position.x, y: player.position.y, z: player.position.z }); setStatus('Connected to room. Build together online.'); started = true; joinScreen.style.display = 'none'; });
+      connection.on('data', message => applyMessage(message, connection));
+      connection.on('close', () => { removeRemote(connection.peer); connections.delete(connection.peer); });
+      connection.on('error', () => setStatus('Connection lost. The room may have closed.'));
+    }
+    function showRoom(id) { roomCodeValue.textContent = id; roomCode.style.display = 'flex'; roomLabel.textContent = id.slice(0, 8).toUpperCase(); }
+    document.querySelector('#host-room').addEventListener('click', () => {
+      setStatus('Creating online room...');
+      peer = new Peer();
+      peer.on('open', id => { showRoom(id); roomLabel.textContent = id.slice(0, 8).toUpperCase(); started = true; joinScreen.style.display = 'none'; setStatus('Room ready. Send the code to a friend.'); });
+      peer.on('connection', connection => wireConnection(connection));
+      peer.on('error', error => setStatus(`Room error: ${error.type}`));
+    });
+    document.querySelector('#join-room').addEventListener('click', () => {
+      const id = document.querySelector('#room-input').value.trim();
+      if (!id) { setStatus('Enter a room code first.'); return; }
+      setStatus('Connecting to room...');
+      peer = new Peer();
+      peer.on('open', () => { hostConnection = peer.connect(id); wireConnection(hostConnection); });
+      peer.on('error', error => setStatus(`Room error: ${error.type}`));
+    });
+    document.querySelector('#copy-code').addEventListener('click', async () => { await navigator.clipboard?.writeText(roomCodeValue.textContent); setStatus('Room code copied.'); });
+
+    addEventListener('keydown', event => {
+      keys.add(event.code);
+      if (event.code.startsWith('Digit')) {
+        const nextIndex = Number(event.code.replace('Digit', '')) - 1;
+        if (nextIndex >= 0 && nextIndex < blockColors.length) { currentColorIndex = nextIndex; const label = document.querySelector('#block-color'); label.textContent = colorNames[currentColorIndex]; label.style.color = `#${blockColors[currentColorIndex].toString(16)}`; }
+      }
+    });
+    addEventListener('keyup', event => keys.delete(event.code));
+    addEventListener('contextmenu', event => event.preventDefault());
+    addEventListener('mousedown', event => {
+      if (!started || event.button === 0) return;
+      raycaster.setFromCamera(mouse, camera);
+      const hit = raycaster.intersectObjects([basePlate, ...blocks])[0];
+      if (!hit) return;
+      if (event.button === 2) {
+        const position = hit.point.clone().add(hit.face.normal.clone().multiplyScalar(.5));
+        const snapped = { x: Math.floor(position.x / 2) * 2 + 1, y: Math.floor(position.y / 2) * 2 + 1, z: Math.floor(position.z / 2) * 2 + 1 };
+        if (snapped.y >= 1 && snapped.y < 40) addBlock(snapped, blockColors[currentColorIndex]);
+      }
+      if (event.button === 1 && hit.object !== basePlate) removeBlock(hit.object);
+    });
+
+    let lastStateSent = 0;
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), .05);
+      if (started) {
+        const move = new THREE.Vector3(Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')), 0, Number(keys.has('KeyS') || keys.has('ArrowDown')) - Number(keys.has('KeyW') || keys.has('ArrowUp')));
+        if (move.lengthSq()) { move.normalize(); move.applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rotation.y); player.position.addScaledVector(move, 8 * delta); player.rotation.y = Math.atan2(move.x, move.z); }
+        if (keys.has('Space') && grounded) { velocityY = 12; grounded = false; }
+        velocityY -= 30 * delta;
+        player.position.y += velocityY * delta;
+        if (player.position.y <= 0) { player.position.y = 0; velocityY = 0; grounded = true; }
+        player.position.x = THREE.MathUtils.clamp(player.position.x, -47, 47);
+        player.position.z = THREE.MathUtils.clamp(player.position.z, -47, 47);
+        controls.target.set(player.position.x, player.position.y + 1.5, player.position.z);
+        const now = performance.now();
+        if (now - lastStateSent > 50) { broadcastMessage({ type: 'state', id: playerId, x: player.position.x, y: player.position.y, z: player.position.z }); lastStateSent = now; }
+      }
+      remotePlayers.forEach(remote => { remote.mesh.position.lerp(remote.target, .2); });
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+    addEventListener('beforeunload', () => broadcastMessage({ type: 'leave', id: playerId }));
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Craft Mine, a browser-based voxel building game.">
+  <title>Craft Mine | Orbit Arcade</title>
+  <style>
+    :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; overflow: hidden; background: #86c9e8; user-select: none; }
+    canvas { display: block; }
+    #crosshair { position: fixed; top: 50%; left: 50%; z-index: 2; color: #fff; font: 28px/1 monospace; transform: translate(-50%, -52%); pointer-events: none; text-shadow: 0 1px 4px #111; }
+    #instructions { position: fixed; top: 18px; left: 18px; z-index: 2; max-width: 330px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.35); background: rgba(7,15,20,.72); color: #fff; font-size: 11px; line-height: 1.7; box-shadow: 5px 5px 0 rgba(7,15,20,.2); }
+    #instructions strong { display: block; margin-bottom: 3px; color: #ffdb6e; font-size: 14px; letter-spacing: .08em; }
+    #status { position: fixed; right: 18px; top: 18px; z-index: 2; padding: 10px 13px; border: 1px solid rgba(255,255,255,.35); background: rgba(7,15,20,.62); color: #fff; font-size: 11px; }
+    #back { position: fixed; right: 18px; bottom: 18px; z-index: 2; padding: 10px 13px; border: 1px solid rgba(255,255,255,.35); background: rgba(7,15,20,.72); color: #fff; font: 11px inherit; text-decoration: none; }
+    #back:hover { border-color: #ffdb6e; color: #ffdb6e; }
+    #start-screen { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding: 20px; background: rgba(7,15,20,.28); }
+    #start-screen section { width: min(450px, 100%); padding: 32px; border: 1px solid rgba(255,255,255,.4); background: rgba(7,15,20,.82); color: #fff; text-align: center; box-shadow: 9px 9px 0 rgba(7,15,20,.28); }
+    #start-screen h1 { margin: 0 0 10px; color: #ffdb6e; font: 700 clamp(38px, 9vw, 70px)/.9 'Space Grotesk', sans-serif; letter-spacing: -.08em; }
+    #start-screen p { margin: 0 0 22px; color: #dbe7e5; font: 13px/1.6 'Space Grotesk', sans-serif; }
+    #start-game { padding: 13px 20px; border: 0; background: #ffdb6e; color: #172329; font: 700 12px inherit; cursor: pointer; }
+    #start-game:hover { background: #fff; }
+    @media (max-width: 600px) { #instructions { top: 12px; left: 12px; right: 12px; max-width: none; } #status { top: auto; right: 12px; bottom: 62px; } #back { right: 12px; bottom: 12px; } }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="crosshair" aria-hidden="true">+</div>
+  <div id="instructions"><strong>CRAFT MINE</strong>Click to look around · WASD to move · Space to jump<br>Left click mines · Right click places</div>
+  <div id="status">BLOCKS: <span id="block-count">0</span></div>
+  <a id="back" href="arcade.html">EXIT TO ARCADE ↗</a>
+  <div id="start-screen"><section><h1>Craft Mine</h1><p>Dig into a living voxel landscape and build your own route through the hills.</p><button id="start-game" type="button">ENTER WORLD</button></section></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0x87ceeb, 28, 75);
+    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xe8f7ff, 0x557342, 1.5));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+    sun.position.set(18, 30, 12);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    const controls = new PointerLockControls(camera, document.body);
+    const startScreen = document.querySelector('#start-screen');
+    document.querySelector('#start-game').addEventListener('click', () => controls.lock());
+    controls.addEventListener('lock', () => { startScreen.style.display = 'none'; });
+    controls.addEventListener('unlock', () => { startScreen.style.display = 'grid'; });
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    const WORLD_SIZE = 24;
+    const blocks = new Map();
+    const key = (x, y, z) => `${x},${y},${z}`;
+    const terrainHeight = (x, z) => Math.max(1, Math.floor(Math.sin(x * .28) * 1.7 + Math.cos(z * .3) * 1.7 + 5));
+    for (let x = 0; x < WORLD_SIZE; x += 1) {
+      for (let z = 0; z < WORLD_SIZE; z += 1) {
+        const height = terrainHeight(x, z);
+        for (let y = 0; y <= height; y += 1) blocks.set(key(x, y, z), 1);
+      }
+    }
+
+    const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const blockMaterial = new THREE.MeshLambertMaterial({ color: 0x557a2b });
+    let worldMesh = new THREE.Group();
+    scene.add(worldMesh);
+    const count = document.querySelector('#block-count');
+
+    function rebuildWorldMesh() {
+      scene.remove(worldMesh);
+      worldMesh = new THREE.Group();
+      blocks.forEach((value, blockKey) => {
+        const [x, y, z] = blockKey.split(',').map(Number);
+        const neighbors = [[x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]];
+        if (neighbors.some(([nx, ny, nz]) => !blocks.has(key(nx, ny, nz)))) {
+          const mesh = new THREE.Mesh(blockGeometry, blockMaterial);
+          mesh.position.set(x, y, z);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          worldMesh.add(mesh);
+        }
+      });
+      scene.add(worldMesh);
+      count.textContent = blocks.size;
+    }
+    rebuildWorldMesh();
+
+    const spawnX = WORLD_SIZE / 2;
+    const spawnZ = WORLD_SIZE / 2;
+    camera.position.set(spawnX, terrainHeight(spawnX, spawnZ) + 2.2, spawnZ);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2(0, 0);
+    document.addEventListener('mousedown', event => {
+      if (!controls.isLocked) return;
+      raycaster.setFromCamera(mouse, camera);
+      const hit = raycaster.intersectObjects(worldMesh.children)[0];
+      if (!hit) return;
+      const position = hit.object.position;
+      if (event.button === 0) blocks.delete(key(position.x, position.y, position.z));
+      if (event.button === 2) {
+        const normal = hit.face.normal;
+        const target = [position.x + normal.x, position.y + normal.y, position.z + normal.z];
+        if (target[1] >= 0 && target[1] < 32 && !blocks.has(key(...target))) blocks.set(key(...target), 1);
+      }
+      rebuildWorldMesh();
+    });
+
+    let forward = false, backward = false, left = false, right = false, canJump = false;
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const held = (event, value) => {
+      if (event.code === 'KeyW') forward = value;
+      if (event.code === 'KeyS') backward = value;
+      if (event.code === 'KeyA') left = value;
+      if (event.code === 'KeyD') right = value;
+      if (event.code === 'Space' && value && canJump) { velocity.y = 8; canJump = false; }
+    };
+    document.addEventListener('keydown', event => held(event, true));
+    document.addEventListener('keyup', event => held(event, false));
+
+    let previousTime = performance.now();
+    function animate() {
+      requestAnimationFrame(animate);
+      const time = performance.now();
+      const delta = Math.min((time - previousTime) / 1000, .05);
+      previousTime = time;
+      if (controls.isLocked) {
+        velocity.x -= velocity.x * 10 * delta;
+        velocity.z -= velocity.z * 10 * delta;
+        velocity.y -= 19.6 * delta;
+        direction.set(Number(right) - Number(left), 0, Number(forward) - Number(backward)).normalize();
+        if (forward || backward) velocity.z -= direction.z * 50 * delta;
+        if (left || right) velocity.x -= direction.x * 50 * delta;
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
+        camera.position.y += velocity.y * delta;
+        const floor = terrainHeight(Math.floor(camera.position.x), Math.floor(camera.position.z)) + 1.7;
+        if (camera.position.y < floor) { camera.position.y = floor; velocity.y = 0; canJump = true; }
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  </script>
+</body>
+</html>
