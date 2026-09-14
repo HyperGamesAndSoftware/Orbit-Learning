@@ -32,7 +32,7 @@
       #finish-screen { width: 100%; text-align: center; font-size: 32px; }
     }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="this.onerror=null; this.src='https://unpkg.com/three@0.128.0/build/three.min.js';"></script>
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -43,7 +43,7 @@
   <div id="race-status">Ready on grid</div>
   <div id="countdown"></div>
   <div id="finish-screen">COURSE COMPLETE!</div>
-  <div id="start-panel"><section><h1>Wario Cart</h1><p>Drift, grab power-ups, hit shortcuts, and beat the rival karts.</p><button id="start-race">START RACE</button></section></div>
+  <div id="start-panel"><section><h1>Wario Cart</h1><p>Drift, grab power-ups, hit shortcuts, and beat the rival karts.</p><button id="start-race" type="button">START RACE</button></section></div>
   <div id="controls-hint"><b>W / Up</b> accelerate · <b>S / Down</b> reverse · <b>A / D</b> steer · <b>Shift / Space</b> drift</div>
   <script src="wario-cart.js"></script>
 </body>
