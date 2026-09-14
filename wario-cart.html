@@ -5,262 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Wario Cart</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #1a1a1a;
-      color: #fff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
+    :root {
+      color-scheme: dark;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
     }
 
-    #game-container {
-      position: relative;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    canvas {
-      background-color: #2e8b57;
-      display: block;
-    }
-
-    #ui-overlay {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      right: 15px;
-      display: flex;
-      justify-content: space-between;
-      pointer-events: none;
-    }
-
-    .hud-card {
-      background: rgba(0, 0, 0, 0.65);
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 18px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-    }
-
-    #controls-hint {
-      margin-top: 15px;
-      color: #aaa;
-      font-size: 14px;
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { margin: 0; overflow: hidden; background: #68c4fe; user-select: none; }
+    #canvas-container { width: 100vw; height: 100vh; }
+    #ui-overlay { position: fixed; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; pointer-events: none; }
+    .hud-card { padding: 12px 24px; border: 3px solid rgba(255,255,255,.3); border-radius: 50px; background: rgba(0,0,0,.5); color: #fff; font-size: 24px; font-weight: 900; letter-spacing: 1.5px; text-shadow: 2px 2px 4px #000; box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+    #controls-hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border: 1px solid rgba(255,255,255,.2); border-radius: 20px; background: rgba(0,0,0,.6); color: #eee; font-size: 14px; white-space: nowrap; pointer-events: none; }
+    #finish-screen { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; color: #ffcc00; font-size: 48px; font-weight: 900; text-shadow: 0 0 20px #f00, 3px 3px #000; pointer-events: none; }
+    @media (max-width: 640px) {
+      .hud-card { padding: 9px 13px; font-size: 14px; }
+      #controls-hint { max-width: calc(100vw - 30px); font-size: 11px; text-align: center; white-space: normal; }
+      #finish-screen { width: 100%; text-align: center; font-size: 32px; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-
-<div id="game-container">
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="canvas-container"></div>
   <div id="ui-overlay">
     <div class="hud-card" id="lap-display">LAP 1 / 3</div>
     <div class="hud-card" id="speed-display">0 KM/H</div>
   </div>
-</div>
-<div id="controls-hint">Controls: Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to Drive</div>
-
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const lapDisplay = document.getElementById('lap-display');
-const speedDisplay = document.getElementById('speed-display');
-
-// Track Waypoints (defines the oval circuit path)
-const trackCenter = { x: 400, y: 300 };
-const radiusX = 280;
-const radiusY = 180;
-const trackWidth = 90;
-
-// Input State
-const keys = {
-  up: false,
-  down: false,
-  left: false,
-  right: false
-};
-
-// Player Object
-const player = {
-  x: 400,
-  y: 450,
-  angle: 0, // In Radians
-  speed: 0,
-  maxSpeed: 7,
-  reverseSpeed: -2.5,
-  acceleration: 0.15,
-  friction: 0.96,
-  offRoadFriction: 0.88,
-  turnSpeed: 0.05,
-  radius: 12,
-  
-  // Game Logic
-  lap: 1,
-  maxLaps: 3,
-  passedCheckpoints: [false, false], // Halfway & Finish Line
-  finished: false
-};
-
-// Event Listeners for Input
-window.addEventListener('keydown', (e) => setKey(e.code, true));
-window.addEventListener('keyup', (e) => setKey(e.code, false));
-
-function setKey(code, value) {
-  if (code === 'KeyW' || code === 'ArrowUp') keys.up = value;
-  if (code === 'KeyS' || code === 'ArrowDown') keys.down = value;
-  if (code === 'KeyA' || code === 'ArrowLeft') keys.left = value;
-  if (code === 'KeyD' || code === 'ArrowRight') keys.right = value;
-}
-
-// Distance helper to check if player is on track
-function isPlayerOnTrack(x, y) {
-  const dx = (x - trackCenter.x) / radiusX;
-  const dy = (y - trackCenter.y) / radiusY;
-  const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-  
-  // Outer boundary factor ~1.15, Inner boundary factor ~0.85
-  return distFromCenter >= 0.72 && distFromCenter <= 1.28;
-}
-
-// Update Physics & Game Logic
-function update() {
-  if (player.finished) return;
-
-  const onTrack = isPlayerOnTrack(player.x, player.y);
-  const currentFriction = onTrack ? player.friction : player.offRoadFriction;
-
-  // Acceleration & Braking
-  if (keys.up) {
-    player.speed += player.acceleration;
-  } else if (keys.down) {
-    player.speed -= player.acceleration;
-  } else {
-    player.speed *= currentFriction;
-  }
-
-  // Cap speeds
-  const currentMaxSpeed = onTrack ? player.maxSpeed : player.maxSpeed * 0.4;
-  if (player.speed > currentMaxSpeed) player.speed = currentMaxSpeed;
-  if (player.speed < player.reverseSpeed) player.speed = player.reverseSpeed;
-
-  // Steering (only if moving)
-  if (Math.abs(player.speed) > 0.1) {
-    const direction = player.speed >= 0 ? 1 : -1;
-    if (keys.left) player.angle -= player.turnSpeed * direction;
-    if (keys.right) player.angle += player.turnSpeed * direction;
-  }
-
-  // Position Update
-  player.x += Math.cos(player.angle) * player.speed;
-  player.y += Math.sin(player.angle) * player.speed;
-
-  // Checkpoints & Laps
-  // Checkpoint 1: Top of the track
-  if (player.y < 200 && Math.abs(player.x - 400) < 100) {
-    player.passedCheckpoints[0] = true;
-  }
-  
-  // Finish Line: Bottom of the track
-  if (player.passedCheckpoints[0] && player.y > 420 && Math.abs(player.x - 400) < 40) {
-    player.passedCheckpoints[0] = false;
-    player.lap++;
-    
-    if (player.lap > player.maxLaps) {
-      player.finished = true;
-      lapDisplay.innerText = "COURSE COMPLETE!";
-      speedDisplay.innerText = "0 KM/H";
-      return;
-    }
-  }
-
-  // UI Updates
-  lapDisplay.innerText = `LAP ${player.lap} / ${player.maxLaps}`;
-  speedDisplay.innerText = `${Math.round(Math.abs(player.speed) * 18)} KM/H`;
-}
-
-// Render Track & Player
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // 1. Grass Background (Handled by canvas background color)
-
-  // 2. Draw Outer Track Curb
-  ctx.beginPath();
-  ctx.ellipse(trackCenter.x, trackCenter.y, radiusX + trackWidth/2, radiusY + trackWidth/2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#e74c3c';
-  ctx.fill();
-
-  // 3. Draw Track Asphalt
-  ctx.beginPath();
-  ctx.ellipse(trackCenter.x, trackCenter.y, radiusX + trackWidth/2 - 8, radiusY + trackWidth/2 - 8, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#333333';
-  ctx.fill();
-
-  // 4. Draw Inner Grass Area
-  ctx.beginPath();
-  ctx.ellipse(trackCenter.x, trackCenter.y, radiusX - trackWidth/2, radiusY - trackWidth/2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#e74c3c';
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.ellipse(trackCenter.x, trackCenter.y, radiusX - trackWidth/2 + 8, radiusY - trackWidth/2 + 8, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#2e8b57';
-  ctx.fill();
-
-  // 5. Draw Finish Line
-  ctx.save();
-  ctx.translate(400, 480);
-  ctx.fillStyle = '#ffffff';
-  for (let i = -trackWidth/2 + 5; i < trackWidth/2 - 5; i += 12) {
-    ctx.fillRect(0, i, 8, 6);
-  }
-  ctx.restore();
-
-  // 6. Draw Player Kart
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.rotate(player.angle);
-
-  // Wheels
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-12, -10, 8, 4);
-  ctx.fillRect(6, -10, 8, 4);
-  ctx.fillRect(-12, 6, 8, 4);
-  ctx.fillRect(6, 6, 8, 4);
-
-  // Kart Body
-  ctx.fillStyle = '#e74c3c'; // Red Mario-style body
-  ctx.beginPath();
-  ctx.roundRect(-10, -7, 20, 14, 4);
-  ctx.fill();
-
-  // Helmet
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(-1, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-// Main Game Loop
-function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
-}
-
-// Start Game
-gameLoop();
-</script>
-
+  <div id="finish-screen">COURSE COMPLETE!</div>
+  <div id="controls-hint"><b>W / Up</b> accelerate · <b>S / Down</b> reverse · <b>A / D</b> steer · <b>Shift / Space</b> drift</div>
+  <script src="wario-cart.js"></script>
 </body>
 </html>
