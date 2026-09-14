@@ -25,18 +25,21 @@ const countdown = document.getElementById('countdown');
 const startPanel = document.getElementById('start-panel');
 const finishScreen = document.getElementById('finish-screen');
 
-scene.background = new THREE.Color(0x68c4fe);
-scene.fog = new THREE.FogExp2(0x68c4fe, 0.0028);
+scene.background = new THREE.Color(0x91c8e8);
+scene.fog = new THREE.Fog(0x91c8e8, 260, 900);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 1400);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xbfeaff, 0x37632d, 1.15));
-const sun = new THREE.DirectionalLight(0xffffff, 1.25);
+scene.add(new THREE.HemisphereLight(0xdaf1ff, 0x29452c, 1.5));
+const sun = new THREE.DirectionalLight(0xfff1d2, 2.4);
 sun.position.set(100, 180, 60);
 sun.castShadow = true;
 sun.shadow.mapSize.width = 2048;
@@ -45,6 +48,7 @@ sun.shadow.camera.left = -300;
 sun.shadow.camera.right = 300;
 sun.shadow.camera.top = 300;
 sun.shadow.camera.bottom = -300;
+sun.shadow.bias = -0.00015;
 scene.add(sun);
 
 const coursePoints = [
@@ -74,13 +78,13 @@ function makeRibbon(width, color, y, lift = 0) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.82 }));
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.02 }));
   mesh.receiveShadow = true;
   scene.add(mesh);
   return mesh;
 }
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x4c9a3f, roughness: 1 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x527f42, roughness: 0.96, metalness: 0 }));
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
@@ -90,6 +94,8 @@ makeRibbon(1.1, 0xf4e8bd, 0.3, 0.04);
 
 function addScenery() {
   const hillMaterial = new THREE.MeshStandardMaterial({ color: 0x347d39, roughness: 1 });
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x5b3925, roughness: 0.95 });
+  const canopyMaterial = new THREE.MeshStandardMaterial({ color: 0x2f7138, roughness: 0.9 });
   for (let index = 0; index < 20; index += 1) {
     const angle = index * 1.73;
     const hill = new THREE.Mesh(new THREE.SphereGeometry(25 + (index % 3) * 9, 16, 12), hillMaterial);
@@ -97,6 +103,22 @@ function addScenery() {
     hill.scale.y = 0.7;
     hill.receiveShadow = true;
     scene.add(hill);
+  }
+  for (let index = 0; index < 28; index += 1) {
+    const angle = index * 2.41;
+    const radius = 105 + (index % 5) * 24;
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.5, 8, 8), trunkMaterial);
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(6 + (index % 3), 14 + (index % 4) * 2, 9), canopyMaterial);
+    trunk.position.y = 4;
+    canopy.position.y = 13;
+    trunk.castShadow = true;
+    canopy.castShadow = true;
+    tree.add(trunk, canopy);
+    tree.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    tree.rotation.y = angle;
+    tree.scale.setScalar(0.8 + (index % 4) * 0.12);
+    scene.add(tree);
   }
 }
 addScenery();
