@@ -186,6 +186,7 @@
     function showRoom(id) { roomCodeValue.textContent = id; roomCode.style.display = 'flex'; roomLabel.textContent = id.slice(0, 8).toUpperCase(); }
     document.querySelector('#host-room').addEventListener('click', () => {
       setStatus('Creating online room...');
+      document.documentElement.requestFullscreen?.().catch(() => {});
       peer = new Peer();
       peer.on('open', id => { showRoom(id); roomLabel.textContent = id.slice(0, 8).toUpperCase(); started = true; joinScreen.style.display = 'none'; setStatus('Room ready. Send the code to a friend.'); });
       peer.on('connection', connection => wireConnection(connection));
@@ -195,6 +196,7 @@
       const id = document.querySelector('#room-input').value.trim();
       if (!id) { setStatus('Enter a room code first.'); return; }
       setStatus('Connecting to room...');
+      document.documentElement.requestFullscreen?.().catch(() => {});
       peer = new Peer();
       peer.on('open', () => { hostConnection = peer.connect(id); wireConnection(hostConnection); });
       peer.on('error', error => setStatus(`Room error: ${error.type}`));

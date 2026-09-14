@@ -63,7 +63,13 @@
 
     const controls = new PointerLockControls(camera, document.body);
     const startScreen = document.querySelector('#start-screen');
-    document.querySelector('#start-game').addEventListener('click', () => controls.lock());
+    function enterWorld() {
+      startScreen.style.display = 'none';
+      document.documentElement.requestFullscreen?.().catch(() => {});
+      controls.lock();
+    }
+    document.querySelector('#start-game').addEventListener('click', enterWorld);
+    renderer.domElement.addEventListener('click', () => { if (!controls.isLocked) controls.lock(); });
     controls.addEventListener('lock', () => { startScreen.style.display = 'none'; });
     controls.addEventListener('unlock', () => { startScreen.style.display = 'grid'; });
     document.addEventListener('contextmenu', event => event.preventDefault());
