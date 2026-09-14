@@ -323,8 +323,16 @@ function setKeys(code, pressed) {
   if (code === 'KeyD' || code === 'ArrowRight') keys.right = pressed;
   if (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'Space') keys.drift = pressed;
 }
-window.addEventListener('keydown', event => setKeys(event.code, true));
-window.addEventListener('keyup', event => setKeys(event.code, false));
+const drivingCodes = new Set(['KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Space']);
+document.addEventListener('keydown', event => {
+  if (drivingCodes.has(event.code)) event.preventDefault();
+  setKeys(event.code, true);
+});
+document.addEventListener('keyup', event => {
+  if (drivingCodes.has(event.code)) event.preventDefault();
+  setKeys(event.code, false);
+});
+window.addEventListener('blur', () => Object.keys(keys).forEach(key => { keys[key] = false; }));
 
 function beginRace() {
   if (raceState.active || raceState.countdown) return;
@@ -524,6 +532,7 @@ addEventListener('resize', () => {
 });
 
 playerKart.position.copy(routePosition(0.985, 0, 0));
-playerKart.rotation.y = Math.atan2(routeTangents[routeSamples - 1].x, routeTangents[routeSamples - 1].z);
+player.angle = Math.atan2(routeTangents[routeSamples - 1].x, routeTangents[routeSamples - 1].z);
+playerKart.rotation.y = player.angle;
 updateHud();
 animate();

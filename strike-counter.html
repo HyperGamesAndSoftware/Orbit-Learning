@@ -9,7 +9,7 @@
     :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; }
-    body { margin: 0; overflow: hidden; background: #87ceeb; user-select: none; }
+    body { margin: 0; overflow: hidden; background: radial-gradient(circle at 50% 0, #d8f5ff, #87ceeb 48%, #355a66); user-select: none; }
     canvas { display: block; }
     #hud { position: fixed; left: 18px; bottom: 18px; z-index: 2; padding: 13px 16px; border: 1px solid rgba(255,255,255,.35); background: rgba(4,8,12,.74); color: #ffcc00; font-size: 13px; line-height: 1.8; pointer-events: none; text-shadow: 0 1px 4px #000; }
     #hud strong { display: block; margin-bottom: 3px; color: #fff; font-size: 14px; letter-spacing: .1em; }
@@ -49,9 +49,12 @@
     scene.background = new THREE.Color(0x87ceeb);
     scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const sun = new THREE.DirectionalLight(0xffffff, 0.8);

@@ -9,7 +9,7 @@
     :root { color-scheme: dark; font-family: 'DM Mono', 'Courier New', monospace; }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; }
-    body { margin: 0; overflow: hidden; background: #6eb1ff; user-select: none; }
+    body { margin: 0; overflow: hidden; background: radial-gradient(circle at 50% 0, #d8f5ff, #6eb1ff 48%, #294d76); user-select: none; }
     canvas { display: block; }
     #ui { position: fixed; top: 16px; left: 16px; z-index: 2; padding: 13px 16px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; background: rgba(5,12,20,.76); color: #fff; font-size: 11px; line-height: 1.75; pointer-events: none; text-shadow: 0 1px 3px #000; }
     #ui strong { display: block; color: #63d7ff; font-size: 14px; letter-spacing: .1em; }
@@ -51,10 +51,14 @@
     scene.background = new THREE.Color(0x6eb1ff);
     scene.fog = new THREE.FogExp2(0x6eb1ff, 0.005);
     const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(innerWidth, innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.65));
     const sun = new THREE.DirectionalLight(0xffffff, 1);
